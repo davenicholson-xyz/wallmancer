@@ -135,3 +135,9 @@ func (c *Config) GetBoolWithDefault(key string, defaultValue bool) bool {
 	}
 	return defaultValue
 }
+
+func (c *Config) FlagOverride(overrides map[string]any) {
+	for k, v := range overrides {
+		c.values[k] = v
+	}
+}
