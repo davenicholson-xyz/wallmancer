@@ -13,6 +13,14 @@ type Config struct {
 	values map[string]any
 }
 
+func New(path string) (*Config, error) {
+	cfg, err := load(path)
+	if err != nil {
+		return nil, err
+	}
+	return cfg, nil
+}
+
 func load(filepath string) (*Config, error) {
 	data, err := os.ReadFile(filepath)
 	if err != nil {
@@ -29,27 +37,40 @@ func load(filepath string) (*Config, error) {
 	for key, value := range raw {
 		envKey := "WMCR_" + strings.ToUpper(key)
 		if envVal, exists := os.LookupEnv(envKey); exists {
-			switch value.(type) {
-			case bool:
-				if b, err := strconv.ParseBool(envVal); err == nil {
-					value = b
-				}
-			case int:
-				if i, err := strconv.Atoi(envVal); err == nil {
-					value = i
-				}
-			case float64:
-				if i, err := strconv.Atoi(envVal); err == nil {
-					value = i
-				}
-			default:
-				value = envVal
-			}
+			value = convertType(value, envVal)
 		}
 		cfg.values[key] = value
 	}
 
 	return cfg, nil
+}
+
+func convertType(original any, override string) any {
+	switch original.(type) {
+	case bool:
+		if b, err := strconv.ParseBool(override); err == nil {
+			return b
+		}
+	case int:
+		if i, err := strconv.Atoi(override); err == nil {
+			return i
+		}
+	case float64:
+		if f, err := strconv.ParseFloat(override, 64); err == nil {
+			return f
+		}
+	}
+	return override
+}
+
+func (c *Config) Override(key string, value any) {
+	c.values[key] = value
+}
+
+func (c *Config) Overrides(overrides map[string]any) {
+	for key, value := range overrides {
+		c.values[key] = value
+	}
 }
 
 func (c *Config) GetString(key string) string {
@@ -113,12 +134,4 @@ func (c *Config) GetBoolWithDefault(key string, defaultValue bool) bool {
 		return c.GetBool(key)
 	}
 	return defaultValue
-}
-
-func New(path string) (*Config, error) {
-	cfg, err := load("config.yml")
-	if err != nil {
-		return nil, err
-	}
-	return cfg, nil
 }
