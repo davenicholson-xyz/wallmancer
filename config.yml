@@ -1,3 +1,5 @@
-wallhaven_username: fatnic
-wallhaven_apikey: YAZOO
+wh_username: fatnic
+wh_apikey: YAZOO
+provider: wallhaven
+
 nsfw: false

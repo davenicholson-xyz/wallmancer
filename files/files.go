@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	ErrUserHomeNotFound = errors.New("users home home not found")
+	ErrUserHomeNotFound = errors.New("users home directory not found")
 )
 
 func IsFullPath(path string) bool {
@@ -22,12 +22,16 @@ func IsFullPath(path string) bool {
 
 func GetUserConfigDir() (string, error) {
 	if runtime.GOOS == "windows" {
-		return os.Getenv("APPDATA"), nil
+		return filepath.Join(os.Getenv("APPDATA"), "wallmancer"), nil
 	}
 
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", fmt.Errorf("%w", ErrUserHomeNotFound)
 	}
-	return filepath.Join(home, ".config"), nil
+	return filepath.Join(home, ".config", "wallmancer"), nil
+}
+
+func GetUserCacheDir() (string, error) {
+	return "", nil
 }
