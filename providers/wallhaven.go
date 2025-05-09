@@ -3,6 +3,7 @@ package providers
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	"github.com/davenicholson-xyz/wallmancer/config"
 	"github.com/davenicholson-xyz/wallmancer/download"
@@ -72,47 +73,44 @@ func (w *WallhavenProvider) fetchRandom(cfg *config.Config) (string, error) {
 		url.AddString("sorting", "toplist")
 	}
 
-	// query_url := url.Build()
+	_, last, err := processPage(url, lm)
+	if err != nil {
+		return "", fmt.Errorf("Unable to process page: %v -- %w", url.Build(), err)
+	}
+	if last > 1 {
+		last_page := min(last, cfg.GetIntWithDefault("max_pages", 5))
+		for page := 2; page <= last_page; page++ {
+			url.SetInt("page", page)
+			_, _, err = processPage(url, lm)
+			if err != nil {
+				return "", fmt.Errorf("Unable to process page: %v -- %w", url.Build(), err)
+			}
+		}
+	}
 
-	// resp, err := download.FetchJson(query_url)
-	// if err != nil {
-	// 	return "", fmt.Errorf("%w", err)
-	// }
-	//
-	// var wd WallhavenData
-	// if err := json.Unmarshal(resp, &wd); err != nil {
-	// 	return "", fmt.Errorf("%w", err)
-	// }
-	//
-	// var links []string
-	// for _, link := range wd.Wallpapers {
-	// 	links = append(links, link.Path)
-	// }
-	links := processPage(url)
-	lm.AddLinks(links)
+	all_links := lm.GetLinks()
 
-	fmt.Println(len(links))
-
-	return "", nil
+	return strconv.Itoa(len(all_links)), nil
 }
 
-func processPage(url *download.URLBuilder) []string {
+func processPage(url *download.URLBuilder, lm *download.LinkManager) (int, int, error) {
 	request := url.Build()
-	fmt.Println(request)
 
 	resp, err := download.FetchJson(request)
 	if err != nil {
-		fmt.Println(err)
+		return 0, 0, fmt.Errorf("Could not fetch page: %w", err)
 	}
 
 	var wd WallhavenData
 	if err := json.Unmarshal(resp, &wd); err != nil {
-		fmt.Println(err)
+		return 0, 0, fmt.Errorf("Could not process JSON data: %w", err)
 	}
 
 	var links []string
 	for _, link := range wd.Wallpapers {
 		links = append(links, link.Path)
 	}
-	return links
+
+	lm.AddLinks(links)
+	return wd.Meta.Total, wd.Meta.LastPage, nil
 }

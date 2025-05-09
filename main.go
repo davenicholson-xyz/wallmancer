@@ -3,12 +3,22 @@ package main
 import (
 	"fmt"
 	"log"
+	"os"
 
 	"github.com/davenicholson-xyz/wallmancer/config"
 	"github.com/davenicholson-xyz/wallmancer/providers"
 )
 
 func main() {
+	result, err := runApp()
+	if err != nil {
+		log.Printf("Error: %v", err)
+		os.Exit(1)
+	}
+	fmt.Println(result)
+}
+
+func runApp() (string, error) {
 	flg := config.NewFlagSet()
 
 	flg.DefineString("provider", "", "wallpaper provider")
@@ -26,20 +36,20 @@ func main() {
 	cfg, err := config.New("config.yml")
 	cfg.FlagOverride(flgValues)
 
-	fmt.Printf("%+v\n", cfg)
-
 	if err != nil {
-		log.Fatalln("Failed to load config", err)
+		return "", fmt.Errorf("Failed to load config: %w", err)
 	}
 
 	prov := cfg.GetStringWithDefault("provider", "wallhaven")
 	provider, exists := providers.GetProvider(prov)
 	if !exists {
-		log.Fatalf("issue with provider: %v", err)
+		return "", fmt.Errorf("Provider error: %w", err)
 	}
 
-	_, err = provider.ParseArgs(cfg)
+	result, err := provider.ParseArgs(cfg)
 	if err != nil {
-		fmt.Printf("unable to run args: %s", err)
+		return "", fmt.Errorf("Unable to process args: %w", err)
 	}
+
+	return result, nil
 }

@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	ErrUserHomeNotFound = errors.New("users home directory not found")
+	ErrUserHomeNotFound = errors.New("Users home directory not found")
 )
 
 func IsFullPath(path string) bool {
