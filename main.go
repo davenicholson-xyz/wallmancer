@@ -12,16 +12,21 @@ func main() {
 	flg := config.NewFlagSet()
 
 	flg.DefineString("provider", "", "wallpaper provider")
-	flg.DefineString("wh_username", "", "wallhaven.cc username")
-	flg.DefineString("wh_apikey", "", "wallhaven.cc api key")
-	flg.DefineString("random", "", "query for random wallpaper")
-	flg.DefineBool("hot", false, "wallhaven.cc hot list")
+	flg.DefineString("username", "", "wallhaven.cc username")
+	flg.DefineString("apikey", "", "wallhaven.cc api key")
 	flg.DefineBool("nsfw", false, "Fetch NSFW images")
+
+	flg.DefineString("random", "", "query for random wallpaper")
+	flg.DefineBool("hot", false, "hot")
+	flg.DefineBool("top", false, "toplist")
+	flg.DefineString("seed", "", "random seed for search")
 
 	flgValues := flg.Collect()
 
 	cfg, err := config.New("config.yml")
 	cfg.FlagOverride(flgValues)
+
+	fmt.Printf("%+v\n", cfg)
 
 	if err != nil {
 		log.Fatalln("Failed to load config", err)
@@ -33,6 +38,8 @@ func main() {
 		log.Fatalf("issue with provider: %v", err)
 	}
 
-	url, err := provider.BuildURL(cfg)
-	fmt.Println(url)
+	_, err = provider.ParseArgs(cfg)
+	if err != nil {
+		fmt.Printf("unable to run args: %s", err)
+	}
 }

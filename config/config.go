@@ -24,12 +24,13 @@ func New(path string) (*Config, error) {
 func load(filepath string) (*Config, error) {
 	data, err := os.ReadFile(filepath)
 	if err != nil {
-		return nil, err
+
 	}
 
 	var raw map[string]any
 	if err := yaml.Unmarshal(data, &raw); err != nil {
-		return nil, err
+		cfg := &Config{values: make(map[string]any)}
+		return cfg, nil
 	}
 
 	cfg := &Config{values: make(map[string]any)}

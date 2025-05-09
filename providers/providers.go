@@ -6,5 +6,5 @@ import (
 
 type Provider interface {
 	Name() string
-	BuildURL(cfg *config.Config) (string, error)
+	ParseArgs(cfg *config.Config) (string, error)
 }
