@@ -3,6 +3,7 @@ package download
 import (
 	"net/url"
 	"strconv"
+	"strings"
 )
 
 type URLBuilder struct {
@@ -63,6 +64,45 @@ func (u *URLBuilder) SetBool(key string, value bool) {
 	} else {
 		u.values.Del(key) // Remove if false
 	}
+
+}
+
+// GetString returns the first value associated with the given key.
+// If the key doesn't exist, it returns an empty string.
+func (u *URLBuilder) GetString(key string) string {
+	return u.values.Get(key)
+}
+
+// GetInt returns the integer value associated with the given key.
+// If the key doesn't exist or the value can't be parsed, it returns 0.
+func (u *URLBuilder) GetInt(key string) int {
+	val := u.values.Get(key)
+	if val == "" {
+		return 0
+	}
+	intVal, err := strconv.Atoi(val)
+	if err != nil {
+		return 0
+	}
+	return intVal
+}
+
+// GetBool returns the boolean value associated with the given key.
+// Returns true only if the value is "true" (case-insensitive).
+func (u *URLBuilder) GetBool(key string) bool {
+	val := u.values.Get(key)
+	return strings.EqualFold(val, "true")
+}
+
+// GetAll returns all values associated with the given key.
+func (u *URLBuilder) GetAll(key string) []string {
+	return u.values[key]
+}
+
+// Has returns true if the key exists in the parameters.
+func (u *URLBuilder) Has(key string) bool {
+	_, exists := u.values[key]
+	return exists
 }
 
 // Build the final URL string

@@ -6,13 +6,14 @@ import (
 	"os"
 
 	"github.com/davenicholson-xyz/wallmancer/config"
+	"github.com/davenicholson-xyz/wallmancer/files"
 	"github.com/davenicholson-xyz/wallmancer/providers"
 )
 
 func main() {
 	result, err := runApp()
 	if err != nil {
-		log.Printf("Error: %v", err)
+		log.Println(err)
 		os.Exit(1)
 	}
 	fmt.Println(result)
@@ -25,6 +26,7 @@ func runApp() (string, error) {
 	flg.DefineString("username", "", "wallhaven.cc username")
 	flg.DefineString("apikey", "", "wallhaven.cc api key")
 	flg.DefineBool("nsfw", false, "Fetch NSFW images")
+	flg.DefineInt("expiry", 60, "cache expiry in seconds")
 
 	flg.DefineString("random", "", "query for random wallpaper")
 	flg.DefineBool("hot", false, "hot")
@@ -33,7 +35,8 @@ func runApp() (string, error) {
 
 	flgValues := flg.Collect()
 
-	cfg, err := config.New("config.yml")
+	default_cfg_path, exists := files.DefaultConfigFilepath()
+	cfg, err := config.New(default_cfg_path)
 	cfg.FlagOverride(flgValues)
 
 	if err != nil {
@@ -48,7 +51,7 @@ func runApp() (string, error) {
 
 	result, err := provider.ParseArgs(cfg)
 	if err != nil {
-		return "", fmt.Errorf("Unable to process args: %w", err)
+		return "", fmt.Errorf("%w", err)
 	}
 
 	return result, nil

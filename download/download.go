@@ -5,16 +5,18 @@ import (
 	"io"
 	"math/rand"
 	"net/http"
+	"os"
 	"time"
 )
 
 const (
 	letterBytes   = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-	letterIdxBits = 6                    // 6 bits to represent 64 possibilities (62 actually used)
-	letterIdxMask = 1<<letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
+	letterIdxBits = 6
+	letterIdxMask = 1<<letterIdxBits - 1
 )
 
 func FetchJson(url string) ([]byte, error) {
+	fmt.Printf("Fetching: %v\n", url)
 	resp, err := http.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("HTTP request failed: %w", err)
@@ -43,4 +45,25 @@ func GenerateSeed(length int) string {
 		b[i] = letterBytes[r.Intn(len(letterBytes))]
 	}
 	return string(b)
+}
+
+func DownloadImage(url string, output string) error {
+	resp, err := http.Get(url)
+	if err != nil {
+		return fmt.Errorf("%w", err)
+	}
+	defer resp.Body.Close()
+
+	file, err := os.Create(output)
+	if err != nil {
+		return fmt.Errorf("%w", err)
+	}
+	defer file.Close()
+
+	_, err = io.Copy(file, resp.Body)
+	if err != nil {
+		return fmt.Errorf("%w", err)
+	}
+
+	return nil
 }

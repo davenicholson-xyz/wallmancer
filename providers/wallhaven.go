@@ -3,10 +3,11 @@ package providers
 import (
 	"encoding/json"
 	"fmt"
-	"strconv"
+	"path/filepath"
 
 	"github.com/davenicholson-xyz/wallmancer/config"
 	"github.com/davenicholson-xyz/wallmancer/download"
+	"github.com/davenicholson-xyz/wallmancer/files"
 )
 
 type WallhavenProvider struct{}
@@ -47,6 +48,10 @@ func (w *WallhavenProvider) fetchRandom(cfg *config.Config) (string, error) {
 	url := download.NewURL("https://wallhaven.cc/api/v1/search")
 	lm := download.NewLinkManager()
 
+	cache_dir, _ := files.GetCacheDir()
+
+	var outfile string
+
 	seed := cfg.GetStringWithDefault("seed", download.GenerateSeed(6))
 	url.AddString("seed", seed)
 
@@ -63,20 +68,43 @@ func (w *WallhavenProvider) fetchRandom(cfg *config.Config) (string, error) {
 	if random != "" {
 		url.AddString("sorting", "random")
 		url.AddString("q", random)
+		files.WriteStringToCache(filepath.Join("wallhaven", "last_query"), random)
+		outfile = filepath.Join("wallhaven", "random")
 	}
 
 	if cfg.GetBool("hot") {
 		url.AddString("sorting", "hot")
+		outfile = filepath.Join("wallhaven", "hot")
 	}
 
 	if cfg.GetBool("top") {
 		url.AddString("sorting", "toplist")
+		outfile = filepath.Join("wallhaven", "top")
+	}
+
+	if files.IsFileFresh(filepath.Join(cache_dir, outfile), cfg.GetIntWithDefault("expiry", 600)) {
+		selected, err := files.GetRandomLine(filepath.Join(cache_dir, outfile))
+		if err != nil {
+			return "", fmt.Errorf("selecting file")
+		}
+
+		err = files.ApplyWallpaper(selected, w.Name())
+		if err != nil {
+			return "", fmt.Errorf("gone wring")
+		}
+
+		return "", nil
 	}
 
 	_, last, err := processPage(url, lm)
 	if err != nil {
 		return "", fmt.Errorf("Unable to process page: %v -- %w", url.Build(), err)
 	}
+
+	if lm.Count() == 0 {
+		return "", fmt.Errorf("No wallpapers found")
+	}
+
 	if last > 1 {
 		last_page := min(last, cfg.GetIntWithDefault("max_pages", 5))
 		for page := 2; page <= last_page; page++ {
@@ -89,8 +117,20 @@ func (w *WallhavenProvider) fetchRandom(cfg *config.Config) (string, error) {
 	}
 
 	all_links := lm.GetLinks()
+	files.WriteSliceToCache(outfile, all_links)
 
-	return strconv.Itoa(len(all_links)), nil
+	selected, err := files.GetRandomLine(filepath.Join(cache_dir, outfile))
+	if err != nil {
+		return "", fmt.Errorf("selecting file")
+	}
+
+	err = files.ApplyWallpaper(selected, w.Name())
+	if err != nil {
+		return "", fmt.Errorf("gone wring")
+	}
+
+	return "", nil
+
 }
 
 func processPage(url *download.URLBuilder, lm *download.LinkManager) (int, int, error) {
@@ -112,5 +152,6 @@ func processPage(url *download.URLBuilder, lm *download.LinkManager) (int, int, 
 	}
 
 	lm.AddLinks(links)
+
 	return wd.Meta.Total, wd.Meta.LastPage, nil
 }

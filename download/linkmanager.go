@@ -23,3 +23,7 @@ func (lm *LinkManager) AddLinks(newLinks []string) {
 func (lm *LinkManager) GetLinks() []string {
 	return lm.links
 }
+
+func (lm *LinkManager) Count() int {
+	return len(lm.links)
+}
