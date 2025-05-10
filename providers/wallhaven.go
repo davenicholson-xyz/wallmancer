@@ -48,9 +48,8 @@ func (w *WallhavenProvider) fetchRandom(cfg *config.Config) (string, error) {
 	url := download.NewURL("https://wallhaven.cc/api/v1/search")
 	lm := download.NewLinkManager()
 
-	cache_dir, _ := files.GetCacheDir()
-
 	var outfile string
+	var selected string
 
 	seed := cfg.GetStringWithDefault("seed", download.GenerateSeed(6))
 	url.AddString("seed", seed)
@@ -68,7 +67,6 @@ func (w *WallhavenProvider) fetchRandom(cfg *config.Config) (string, error) {
 	if random != "" {
 		url.AddString("sorting", "random")
 		url.AddString("q", random)
-		files.WriteStringToCache(filepath.Join("wallhaven", "last_query"), random)
 		outfile = filepath.Join("wallhaven", "random")
 	}
 
@@ -82,51 +80,25 @@ func (w *WallhavenProvider) fetchRandom(cfg *config.Config) (string, error) {
 		outfile = filepath.Join("wallhaven", "top")
 	}
 
-	if files.IsFileFresh(filepath.Join(cache_dir, outfile), cfg.GetIntWithDefault("expiry", 600)) {
-		selected, err := files.GetRandomLine(filepath.Join(cache_dir, outfile))
-		if err != nil {
-			return "", fmt.Errorf("selecting file")
-		}
-
-		err = files.ApplyWallpaper(selected, w.Name())
-		if err != nil {
-			return "", fmt.Errorf("gone wring")
-		}
-
-		return "", nil
-	}
-
-	_, last, err := processPage(url, lm)
+	selected, err := checkCacheForQuery(cfg, outfile, url)
 	if err != nil {
-		return "", fmt.Errorf("Unable to process page: %v -- %w", url.Build(), err)
+		return "", fmt.Errorf("%w", err)
 	}
 
-	if lm.Count() == 0 {
-		return "", fmt.Errorf("No wallpapers found")
+	if selected != "" {
+		files.ApplyWallpaper(selected, w.Name())
+		return selected, nil
 	}
 
-	if last > 1 {
-		last_page := min(last, cfg.GetIntWithDefault("max_pages", 5))
-		for page := 2; page <= last_page; page++ {
-			url.SetInt("page", page)
-			_, _, err = processPage(url, lm)
-			if err != nil {
-				return "", fmt.Errorf("Unable to process page: %v -- %w", url.Build(), err)
-			}
-		}
-	}
-
-	all_links := lm.GetLinks()
-	files.WriteSliceToCache(outfile, all_links)
-
-	selected, err := files.GetRandomLine(filepath.Join(cache_dir, outfile))
+	selected, err = fetchQuery(url, lm, cfg, outfile)
 	if err != nil {
-		return "", fmt.Errorf("selecting file")
+		return "", fmt.Errorf("%w", err)
 	}
 
-	err = files.ApplyWallpaper(selected, w.Name())
-	if err != nil {
-		return "", fmt.Errorf("gone wring")
+	if selected != "" {
+		// ApplyWallpaper should return the filepath it is saved to
+		files.ApplyWallpaper(selected, w.Name())
+		return selected, nil
 	}
 
 	return "", nil
@@ -154,4 +126,83 @@ func processPage(url *download.URLBuilder, lm *download.LinkManager) (int, int, 
 	lm.AddLinks(links)
 
 	return wd.Meta.Total, wd.Meta.LastPage, nil
+}
+
+func checkCacheForQuery(cfg *config.Config, outfile string, url *download.URLBuilder) (string, error) {
+
+	cache_dir, err := files.GetCacheDir()
+	if err != nil {
+		return "", fmt.Errorf("%w", err)
+	}
+
+	if outfile == "wallhaven/random" {
+		last_query, err := files.ReadFromCache("wallhaven/last_query")
+		if err != nil {
+			last_query = ""
+		}
+
+		cleanUrl := url.Without("apikey").Without("seed")
+		query_url := cleanUrl.Build()
+
+		if last_query == query_url {
+			if files.IsFileFresh(filepath.Join(cache_dir, outfile), cfg.GetIntWithDefault("expiry", 600)) {
+				selected, err := files.GetRandomLine(filepath.Join(cache_dir, outfile))
+				if err != nil {
+					return "", fmt.Errorf("%w", err)
+				}
+				return selected, nil
+			}
+		} else {
+			return "", nil
+		}
+	}
+
+	if files.IsFileFresh(filepath.Join(cache_dir, outfile), cfg.GetIntWithDefault("expiry", 600)) {
+		selected, err := files.GetRandomLine(filepath.Join(cache_dir, outfile))
+		if err != nil {
+			return "", fmt.Errorf("%w", err)
+		}
+		return selected, nil
+	}
+
+	return "", nil
+}
+
+func fetchQuery(url *download.URLBuilder, lm *download.LinkManager, cfg *config.Config, outfile string) (string, error) {
+	cache_dir, err := files.GetCacheDir()
+
+	if outfile == "wallhaven/random" {
+		cleanUrl := url.Without("apikey").Without("seed")
+		query_url := cleanUrl.Build()
+		files.WriteStringToCache(filepath.Join("wallhaven", "last_query"), query_url)
+	}
+
+	_, last, err := processPage(url, lm)
+	if err != nil {
+		return "", fmt.Errorf("Unable to process page: %v -- %w", url.Build(), err)
+	}
+
+	if lm.Count() == 0 {
+		return "", fmt.Errorf("No wallpapers found")
+	}
+
+	if last > 1 {
+		last_page := min(last, cfg.GetIntWithDefault("max_pages", 5))
+		for page := 2; page <= last_page; page++ {
+			url.SetInt("page", page)
+			_, _, err = processPage(url, lm)
+			if err != nil {
+				return "", fmt.Errorf("Unable to process page: %v -- %w", url.Build(), err)
+			}
+		}
+	}
+
+	all_links := lm.GetLinks()
+	files.WriteSliceToCache(outfile, all_links)
+
+	selected, err := files.GetRandomLine(filepath.Join(cache_dir, outfile))
+	if err != nil {
+		return "", fmt.Errorf("%w", err)
+	}
+	return selected, nil
 }

@@ -65,30 +65,6 @@ func DefaultConfigFilepath() (string, bool) {
 	return cfg_path, exists
 }
 
-func WriteStringToCache(filename string, str string) error {
-	// Get or create cache directory
-	cacheDir, err := GetCacheDir()
-	if err != nil {
-		return err
-	}
-
-	// Ensure the full path exists
-	fullPath := filepath.Join(cacheDir, filename)
-	dirPath := filepath.Dir(fullPath)
-
-	// Create parent directories if they don't exist
-	if err := os.MkdirAll(dirPath, 0755); err != nil {
-		return fmt.Errorf("failed to create cache directories: %w", err)
-	}
-
-	// Write file with user-only permissions (0600)
-	if err := os.WriteFile(fullPath, []byte(str), 0600); err != nil {
-		return fmt.Errorf("failed to write cache file: %w", err)
-	}
-
-	return nil
-}
-
 func GetCacheDir() (string, error) {
 	var cacheDir string
 
@@ -114,6 +90,30 @@ func GetCacheDir() (string, error) {
 	}
 
 	return cacheDir, nil
+}
+
+func WriteStringToCache(filename string, str string) error {
+	// Get or create cache directory
+	cacheDir, err := GetCacheDir()
+	if err != nil {
+		return err
+	}
+
+	// Ensure the full path exists
+	fullPath := filepath.Join(cacheDir, filename)
+	dirPath := filepath.Dir(fullPath)
+
+	// Create parent directories if they don't exist
+	if err := os.MkdirAll(dirPath, 0755); err != nil {
+		return fmt.Errorf("failed to create cache directories: %w", err)
+	}
+
+	// Write file with user-only permissions (0600)
+	if err := os.WriteFile(fullPath, []byte(str), 0600); err != nil {
+		return fmt.Errorf("failed to write cache file: %w", err)
+	}
+
+	return nil
 }
 
 func WriteSliceToCache(filename string, lines []string) error {
@@ -143,26 +143,39 @@ func WriteSliceToCache(filename string, lines []string) error {
 }
 
 func IsFileFresh(filepath string, expirySeconds int) bool {
-	fmt.Println("checking", filepath, expirySeconds)
-
 	fileInfo, err := os.Stat(filepath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			// File doesn't exist
 			return false
 		}
-		// Other error (e.g., permission issues)
 		return false
 	}
 
-	// Calculate expiry time
 	modifiedTime := fileInfo.ModTime()
 	expiryDuration := time.Duration(expirySeconds) * time.Second
 	expiryTime := modifiedTime.Add(expiryDuration)
 
-	fmt.Println(modifiedTime, expiryDuration, expiryTime, time.Now())
-	// Check if current time is before expiry time
 	return time.Now().Before(expiryTime)
+}
+
+func ReadFromCache(path string) (string, error) {
+	cache, err := GetCacheDir()
+	if err != nil {
+		return "", fmt.Errorf("%w", err)
+	}
+	content, err := os.ReadFile(filepath.Join(cache, path))
+	if err != nil {
+		return "", fmt.Errorf("failed to read file: %w", err)
+	}
+	return string(content), nil
+}
+
+func ReadLine(filename string) (string, error) {
+	content, err := os.ReadFile(filename)
+	if err != nil {
+		return "", fmt.Errorf("failed to read file: %w", err)
+	}
+	return string(content), nil
 }
 
 func GetRandomLine(filename string) (string, error) {

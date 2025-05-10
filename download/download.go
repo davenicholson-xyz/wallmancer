@@ -16,7 +16,6 @@ const (
 )
 
 func FetchJson(url string) ([]byte, error) {
-	fmt.Printf("Fetching: %v\n", url)
 	resp, err := http.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("HTTP request failed: %w", err)

@@ -112,3 +112,29 @@ func (u *URLBuilder) Build() string {
 	}
 	return u.baseURL + "?" + u.values.Encode()
 }
+
+func (u *URLBuilder) BuildWithout(key string) string {
+	newValues := make(url.Values)
+	for k, v := range u.values {
+		if k != key {
+			newValues[k] = v
+		}
+	}
+
+	if len(newValues) == 0 {
+		return u.baseURL
+	}
+	return u.baseURL + "?" + newValues.Encode()
+}
+
+func (u *URLBuilder) Without(key string) *URLBuilder {
+	newBuilder := NewURL(u.baseURL)
+
+	for k, v := range u.values {
+		if k != key {
+			newBuilder.values[k] = v
+		}
+	}
+
+	return newBuilder
+}
