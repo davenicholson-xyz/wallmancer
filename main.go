@@ -30,6 +30,8 @@ func runApp() (string, error) {
 	flg.DefineBool("nsfw", false, "Fetch NSFW images")
 	flg.DefineInt("expiry", 0, "cache expiry in seconds")
 
+	flg.DefineBool("clear", false, "clear the wallmancer cache")
+
 	flg.DefineString("random", "", "query for random wallpaper")
 	flg.DefineBool("hot", false, "hot")
 	flg.DefineBool("top", false, "toplist")
@@ -46,6 +48,15 @@ func runApp() (string, error) {
 
 	if err != nil {
 		return "", fmt.Errorf("Failed to load config: %w", err)
+	}
+
+	if cfg.GetBool("clear") {
+		slog.Info("Clearing the cache")
+		err := files.ClearCache()
+		if err != nil {
+			return "", fmt.Errorf("Error deleting cache: %w", err)
+		}
+		return "Cache deleted", nil
 	}
 
 	prov := cfg.GetStringWithDefault("provider", "wallhaven")

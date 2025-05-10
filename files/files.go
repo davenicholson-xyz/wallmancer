@@ -202,3 +202,17 @@ func GetRandomLine(filename string) (string, error) {
 
 	return nonEmptyLines[rand.Intn(len(nonEmptyLines))], nil
 }
+
+func ClearCache() error {
+	cacheDir, err := GetCacheDir()
+	if err != nil {
+		return err
+	}
+
+	err = os.RemoveAll(cacheDir)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
