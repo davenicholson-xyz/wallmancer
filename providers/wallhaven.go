@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"path/filepath"
+	"strings"
 
 	"github.com/davenicholson-xyz/wallmancer/appcontext"
 	"github.com/davenicholson-xyz/wallmancer/download"
@@ -96,7 +97,7 @@ func (w *WallhavenProvider) fetchRandom(app *appcontext.AppContext) (string, err
 			return "", fmt.Errorf("%w", err)
 		}
 		current_string := fmt.Sprintf("%s\n%s", selected, output)
-		err = files.WriteStringToCache("wallhaven/current", current_string)
+		err = app.CacheTools.WriteStringToFile("wallhaven/current", current_string)
 		if err != nil {
 			return "", fmt.Errorf("%w", err)
 		}
@@ -114,7 +115,7 @@ func (w *WallhavenProvider) fetchRandom(app *appcontext.AppContext) (string, err
 			return "", fmt.Errorf("%w", err)
 		}
 		current_string := fmt.Sprintf("%s\n%s", selected, output)
-		err = files.WriteStringToCache("wallhaven/current", current_string)
+		err = app.CacheTools.WriteStringToFile("wallhaven/current", current_string)
 		if err != nil {
 			return "", fmt.Errorf("%w", err)
 		}
@@ -149,9 +150,10 @@ func processPage(app *appcontext.AppContext) (int, int, error) {
 }
 
 func checkCacheForQuery(app *appcontext.AppContext, outfile string) (string, error) {
+	slog.Info("Checking cache for query")
 
 	if outfile == "wallhaven/random" {
-		last_query, err := app.CacheTools.ReadLineFromFile(outfile, 1)
+		last_query, err := app.CacheTools.ReadLineFromFile("wallhaven/last_query", 1)
 		if err != nil {
 			return "", nil
 		}
@@ -190,6 +192,7 @@ func fetchQuery(app *appcontext.AppContext, outfile string) (string, error) {
 	if outfile == "wallhaven/random" {
 		cleanUrl := app.URLBuilder.Without("apikey").Without("seed")
 		query_url := cleanUrl.Build()
+		slog.Info(query_url)
 		app.CacheTools.WriteStringToFile("wallhaven/last_query", query_url)
 	}
 
@@ -215,8 +218,8 @@ func fetchQuery(app *appcontext.AppContext, outfile string) (string, error) {
 		}
 	}
 
-	all_links := app.LinkManager.GetLinks()
-	files.WriteSliceToCache(outfile, all_links)
+	all_links := strings.Join(app.LinkManager.GetLinks(), "\n")
+	app.CacheTools.WriteStringToFile(outfile, all_links)
 
 	selected, err := files.GetRandomLine(app.CacheTools.Join(outfile))
 	if err != nil {
