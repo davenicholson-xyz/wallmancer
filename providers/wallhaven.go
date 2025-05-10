@@ -6,7 +6,7 @@ import (
 	"log/slog"
 	"path/filepath"
 
-	"github.com/davenicholson-xyz/wallmancer/config"
+	"github.com/davenicholson-xyz/wallmancer/appcontext"
 	"github.com/davenicholson-xyz/wallmancer/download"
 	"github.com/davenicholson-xyz/wallmancer/files"
 )
@@ -32,10 +32,10 @@ func (w *WallhavenProvider) Name() string {
 	return "wallhaven"
 }
 
-func (w *WallhavenProvider) ParseArgs(cfg *config.Config) (string, error) {
+func (w *WallhavenProvider) ParseArgs(app *appcontext.AppContext) (string, error) {
 
-	if cfg.GetString("random") != "" || cfg.GetBool("top") || cfg.GetBool("hot") {
-		wp, err := w.fetchRandom(cfg)
+	if app.Config.GetString("random") != "" || app.Config.GetBool("top") || app.Config.GetBool("hot") {
+		wp, err := w.fetchRandom(app)
 		if err != nil {
 			return "", err
 		}
@@ -45,44 +45,47 @@ func (w *WallhavenProvider) ParseArgs(cfg *config.Config) (string, error) {
 	return "", nil
 }
 
-func (w *WallhavenProvider) fetchRandom(cfg *config.Config) (string, error) {
+func (w *WallhavenProvider) fetchRandom(app *appcontext.AppContext) (string, error) {
 	url := download.NewURL("https://wallhaven.cc/api/v1/search")
+	app.AddURLBuilder(url)
+
 	lm := download.NewLinkManager()
+	app.AddLinkManager(lm)
 
 	var outfile string
 	var selected string
 
-	seed := cfg.GetStringWithDefault("seed", download.GenerateSeed(6))
-	url.AddString("seed", seed)
+	seed := app.Config.GetStringWithDefault("seed", download.GenerateSeed(6))
+	app.URLBuilder.AddString("seed", seed)
 
-	apikey := cfg.GetString("apikey")
+	apikey := app.Config.GetString("apikey")
 	if apikey != "" {
-		url.AddString("apikey", apikey)
+		app.URLBuilder.AddString("apikey", apikey)
 	}
 
 	url.SetString("purity", "100")
-	if cfg.GetBool("nsfw") {
-		url.SetString("purity", "111")
+	if app.Config.GetBool("nsfw") {
+		app.URLBuilder.SetString("purity", "111")
 	}
 
-	random := cfg.GetString("random")
+	random := app.Config.GetString("random")
 	if random != "" {
-		url.SetString("sorting", "random")
-		url.AddString("q", random)
+		app.URLBuilder.SetString("sorting", "random")
+		app.URLBuilder.AddString("q", random)
 		outfile = filepath.Join("wallhaven", "random")
 	}
 
-	if cfg.GetBool("hot") {
+	if app.Config.GetBool("hot") {
 		url.SetString("sorting", "hot")
 		outfile = filepath.Join("wallhaven", "hot")
 	}
 
-	if cfg.GetBool("top") {
-		url.SetString("sorting", "toplist")
+	if app.Config.GetBool("top") {
+		app.URLBuilder.SetString("sorting", "toplist")
 		outfile = filepath.Join("wallhaven", "top")
 	}
 
-	selected, err := checkCacheForQuery(cfg, outfile, url)
+	selected, err := checkCacheForQuery(app, outfile)
 	if err != nil {
 		return "", fmt.Errorf("%w", err)
 	}
@@ -100,7 +103,7 @@ func (w *WallhavenProvider) fetchRandom(cfg *config.Config) (string, error) {
 		return selected, nil
 	}
 
-	selected, err = fetchQuery(url, lm, cfg, outfile)
+	selected, err = fetchQuery(app, outfile)
 	if err != nil {
 		return "", fmt.Errorf("%w", err)
 	}
@@ -122,8 +125,8 @@ func (w *WallhavenProvider) fetchRandom(cfg *config.Config) (string, error) {
 
 }
 
-func processPage(url *download.URLBuilder, lm *download.LinkManager) (int, int, error) {
-	request := url.Build()
+func processPage(app *appcontext.AppContext) (int, int, error) {
+	request := app.URLBuilder.Build()
 
 	resp, err := download.FetchJson(request)
 	if err != nil {
@@ -140,31 +143,26 @@ func processPage(url *download.URLBuilder, lm *download.LinkManager) (int, int, 
 		links = append(links, link.Path)
 	}
 
-	lm.AddLinks(links)
+	app.LinkManager.AddLinks(links)
 
 	return wd.Meta.Total, wd.Meta.LastPage, nil
 }
 
-func checkCacheForQuery(cfg *config.Config, outfile string, url *download.URLBuilder) (string, error) {
-
-	cache_dir, err := files.GetCacheDir()
-	if err != nil {
-		return "", fmt.Errorf("%w", err)
-	}
+func checkCacheForQuery(app *appcontext.AppContext, outfile string) (string, error) {
 
 	if outfile == "wallhaven/random" {
-		last_query, err := files.ReadFromCache("wallhaven/last_query")
+		last_query, err := app.CacheTools.ReadLineFromFile(outfile, 1)
 		if err != nil {
 			return "", nil
 		}
 
-		cleanUrl := url.Without("apikey").Without("seed")
+		cleanUrl := app.URLBuilder.Without("apikey").Without("seed")
 		query_url := cleanUrl.Build()
 
 		if last_query == query_url {
-			if files.IsFileFresh(filepath.Join(cache_dir, outfile), cfg.GetIntWithDefault("expiry", 600)) {
+			if files.IsFileFresh(app.CacheTools.Join(outfile), app.Config.GetIntWithDefault("expiry", 600)) {
 				slog.Info("Using cached results")
-				selected, err := files.GetRandomLine(filepath.Join(cache_dir, outfile))
+				selected, err := files.GetRandomLine(app.CacheTools.Join(outfile))
 				if err != nil {
 					return "", fmt.Errorf("%w", err)
 				}
@@ -175,8 +173,8 @@ func checkCacheForQuery(cfg *config.Config, outfile string, url *download.URLBui
 		}
 	}
 
-	if files.IsFileFresh(filepath.Join(cache_dir, outfile), cfg.GetIntWithDefault("expiry", 600)) {
-		selected, err := files.GetRandomLine(filepath.Join(cache_dir, outfile))
+	if files.IsFileFresh(app.CacheTools.Join(outfile), app.Config.GetIntWithDefault("expiry", 600)) {
+		selected, err := files.GetRandomLine(app.CacheTools.Join(outfile))
 		if err != nil {
 			return "", fmt.Errorf("%w", err)
 		}
@@ -186,41 +184,41 @@ func checkCacheForQuery(cfg *config.Config, outfile string, url *download.URLBui
 	return "", nil
 }
 
-func fetchQuery(url *download.URLBuilder, lm *download.LinkManager, cfg *config.Config, outfile string) (string, error) {
+func fetchQuery(app *appcontext.AppContext, outfile string) (string, error) {
 	slog.Info("Using new query results")
-	cache_dir, err := files.GetCacheDir()
 
 	if outfile == "wallhaven/random" {
-		cleanUrl := url.Without("apikey").Without("seed")
+		cleanUrl := app.URLBuilder.Without("apikey").Without("seed")
 		query_url := cleanUrl.Build()
-		files.WriteStringToCache(filepath.Join("wallhaven", "last_query"), query_url)
+		app.CacheTools.WriteStringToFile("wallhaven/last_query", query_url)
 	}
 
-	_, last, err := processPage(url, lm)
+	_, last, err := processPage(app)
 	if err != nil {
-		return "", fmt.Errorf("Unable to process page: %v -- %w", url.Build(), err)
+		return "", fmt.Errorf("Unable to process page: %v -- %w", app.URLBuilder.Build(), err)
 	}
 
-	if lm.Count() == 0 {
+	if app.LinkManager.Count() == 0 {
 		files.WriteStringToCache(filepath.Join("wallhaven", "last_query"), "")
 		return "", fmt.Errorf("No wallpapers found")
 	}
 
+	//TODO: Dont forget to make this concurrent
 	if last > 1 {
-		last_page := min(last, cfg.GetIntWithDefault("max_pages", 5))
+		last_page := min(last, app.Config.GetIntWithDefault("max_pages", 5))
 		for page := 2; page <= last_page; page++ {
-			url.SetInt("page", page)
-			_, _, err = processPage(url, lm)
+			app.URLBuilder.SetInt("page", page)
+			_, _, err = processPage(app)
 			if err != nil {
-				return "", fmt.Errorf("Unable to process page: %v -- %w", url.Build(), err)
+				return "", fmt.Errorf("Unable to process page: %v -- %w", app.URLBuilder.Build(), err)
 			}
 		}
 	}
 
-	all_links := lm.GetLinks()
+	all_links := app.LinkManager.GetLinks()
 	files.WriteSliceToCache(outfile, all_links)
 
-	selected, err := files.GetRandomLine(filepath.Join(cache_dir, outfile))
+	selected, err := files.GetRandomLine(app.CacheTools.Join(outfile))
 	if err != nil {
 		return "", fmt.Errorf("%w", err)
 	}

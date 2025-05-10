@@ -1,3 +1,5 @@
+github.com/davenicholson-xyz/go-cachetools v0.1.0 h1:oLmlFRKDB3moYp8XLEmpu59q7jzS6vQP7fbt2ay/LtY=
+github.com/davenicholson-xyz/go-cachetools v0.1.0/go.mod h1:uBLzh0eMCTDOwzbJuNL+bw3beGu5AwA6YwDSHmLoPKY=
 github.com/davenicholson-xyz/go-setwallpaper v0.1.0 h1:vyQz2yyNFci4LgskbWUMC57jw6yaUI9GVgbY0qnXddE=
 github.com/davenicholson-xyz/go-setwallpaper v0.1.0/go.mod h1:HXDnpwZL4ttRj1njpXDh141DZ6ng6QTCouO5fEyo66c=
 golang.org/x/sys v0.33.0 h1:q3i8TbbEz+JRD9ywIRlyRAQbM0qF7hu24q3teo2hbuw=

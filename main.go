@@ -6,6 +6,8 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/davenicholson-xyz/go-cachetools/cachetools"
+	"github.com/davenicholson-xyz/wallmancer/appcontext"
 	"github.com/davenicholson-xyz/wallmancer/config"
 	"github.com/davenicholson-xyz/wallmancer/files"
 	"github.com/davenicholson-xyz/wallmancer/providers"
@@ -22,6 +24,8 @@ func main() {
 }
 
 func runApp() (string, error) {
+	app := appcontext.NewAppContext()
+
 	flg := config.NewFlagSet()
 
 	flg.DefineString("provider", "", "wallpaper provider")
@@ -43,29 +47,38 @@ func runApp() (string, error) {
 	cfg, err := config.New(default_cfg_path)
 	cfg.FlagOverride(flgValues)
 
-	flagstring := fmt.Sprintf("%v+", cfg)
+	app.AddConfig(cfg)
+
+	flagstring := fmt.Sprintf("%v+", app.Config)
 	slog.Info(flagstring)
 
 	if err != nil {
 		return "", fmt.Errorf("Failed to load config: %w", err)
 	}
 
-	if cfg.GetBool("clear") {
+	ct, err := cachetools.New("wallmancer")
+	if err != nil {
+		return "", fmt.Errorf("Error creating cache: %w", err)
+	}
+
+	app.AddCacheTools(ct)
+
+	if app.Config.GetBool("clear") {
 		slog.Info("Clearing the cache")
-		err := files.ClearCache()
+		err := app.CacheTools.Clear()
 		if err != nil {
 			return "", fmt.Errorf("Error deleting cache: %w", err)
 		}
 		return "Cache deleted", nil
 	}
 
-	prov := cfg.GetStringWithDefault("provider", "wallhaven")
+	prov := app.Config.GetStringWithDefault("provider", "wallhaven")
 	provider, exists := providers.GetProvider(prov)
 	if !exists {
 		return "", fmt.Errorf("Provider error: %w", err)
 	}
 
-	result, err := provider.ParseArgs(cfg)
+	result, err := provider.ParseArgs(app)
 	if err != nil {
 		return "", fmt.Errorf("%w", err)
 	}

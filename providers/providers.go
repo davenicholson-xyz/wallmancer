@@ -1,10 +1,10 @@
 package providers
 
 import (
-	"github.com/davenicholson-xyz/wallmancer/config"
+	"github.com/davenicholson-xyz/wallmancer/appcontext"
 )
 
 type Provider interface {
 	Name() string
-	ParseArgs(cfg *config.Config) (string, error)
+	ParseArgs(app *appcontext.AppContext) (string, error)
 }
