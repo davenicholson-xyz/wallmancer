@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"strconv"
 	"strings"
@@ -22,6 +23,7 @@ func New(path string) (*Config, error) {
 }
 
 func load(filepath string) (*Config, error) {
+	slog.Info("Loading config")
 	data, err := os.ReadFile(filepath)
 	if err != nil {
 

@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"log/slog"
 	"os"
 
 	"github.com/davenicholson-xyz/wallmancer/config"
@@ -11,6 +12,7 @@ import (
 )
 
 func main() {
+	slog.SetLogLoggerLevel(slog.LevelInfo)
 	result, err := runApp()
 	if err != nil {
 		log.Println(err)
@@ -26,7 +28,7 @@ func runApp() (string, error) {
 	flg.DefineString("username", "", "wallhaven.cc username")
 	flg.DefineString("apikey", "", "wallhaven.cc api key")
 	flg.DefineBool("nsfw", false, "Fetch NSFW images")
-	flg.DefineInt("expiry", 60, "cache expiry in seconds")
+	flg.DefineInt("expiry", 0, "cache expiry in seconds")
 
 	flg.DefineString("random", "", "query for random wallpaper")
 	flg.DefineBool("hot", false, "hot")
@@ -38,6 +40,9 @@ func runApp() (string, error) {
 	default_cfg_path, exists := files.DefaultConfigFilepath()
 	cfg, err := config.New(default_cfg_path)
 	cfg.FlagOverride(flgValues)
+
+	flagstring := fmt.Sprintf("%v+", cfg)
+	slog.Info(flagstring)
 
 	if err != nil {
 		return "", fmt.Errorf("Failed to load config: %w", err)

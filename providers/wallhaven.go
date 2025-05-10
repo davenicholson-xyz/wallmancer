@@ -3,6 +3,7 @@ package providers
 import (
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"path/filepath"
 
 	"github.com/davenicholson-xyz/wallmancer/config"
@@ -59,24 +60,25 @@ func (w *WallhavenProvider) fetchRandom(cfg *config.Config) (string, error) {
 		url.AddString("apikey", apikey)
 	}
 
+	url.SetString("purity", "100")
 	if cfg.GetBool("nsfw") {
-		url.AddString("purity", "111")
+		url.SetString("purity", "111")
 	}
 
 	random := cfg.GetString("random")
 	if random != "" {
-		url.AddString("sorting", "random")
+		url.SetString("sorting", "random")
 		url.AddString("q", random)
 		outfile = filepath.Join("wallhaven", "random")
 	}
 
 	if cfg.GetBool("hot") {
-		url.AddString("sorting", "hot")
+		url.SetString("sorting", "hot")
 		outfile = filepath.Join("wallhaven", "hot")
 	}
 
 	if cfg.GetBool("top") {
-		url.AddString("sorting", "toplist")
+		url.SetString("sorting", "toplist")
 		outfile = filepath.Join("wallhaven", "top")
 	}
 
@@ -138,7 +140,7 @@ func checkCacheForQuery(cfg *config.Config, outfile string, url *download.URLBui
 	if outfile == "wallhaven/random" {
 		last_query, err := files.ReadFromCache("wallhaven/last_query")
 		if err != nil {
-			last_query = ""
+			return "", nil
 		}
 
 		cleanUrl := url.Without("apikey").Without("seed")
@@ -146,6 +148,7 @@ func checkCacheForQuery(cfg *config.Config, outfile string, url *download.URLBui
 
 		if last_query == query_url {
 			if files.IsFileFresh(filepath.Join(cache_dir, outfile), cfg.GetIntWithDefault("expiry", 600)) {
+				slog.Info("Using cached results")
 				selected, err := files.GetRandomLine(filepath.Join(cache_dir, outfile))
 				if err != nil {
 					return "", fmt.Errorf("%w", err)
@@ -169,6 +172,7 @@ func checkCacheForQuery(cfg *config.Config, outfile string, url *download.URLBui
 }
 
 func fetchQuery(url *download.URLBuilder, lm *download.LinkManager, cfg *config.Config, outfile string) (string, error) {
+	slog.Info("Using new query results")
 	cache_dir, err := files.GetCacheDir()
 
 	if outfile == "wallhaven/random" {
@@ -183,6 +187,7 @@ func fetchQuery(url *download.URLBuilder, lm *download.LinkManager, cfg *config.
 	}
 
 	if lm.Count() == 0 {
+		files.WriteStringToCache(filepath.Join("wallhaven", "last_query"), "")
 		return "", fmt.Errorf("No wallpapers found")
 	}
 
