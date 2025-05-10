@@ -88,7 +88,15 @@ func (w *WallhavenProvider) fetchRandom(cfg *config.Config) (string, error) {
 	}
 
 	if selected != "" {
-		files.ApplyWallpaper(selected, w.Name())
+		output, err := files.ApplyWallpaper(selected, w.Name())
+		if err != nil {
+			return "", fmt.Errorf("%w", err)
+		}
+		current_string := fmt.Sprintf("%s\n%s", selected, output)
+		err = files.WriteStringToCache("wallhaven/current", current_string)
+		if err != nil {
+			return "", fmt.Errorf("%w", err)
+		}
 		return selected, nil
 	}
 
@@ -98,8 +106,15 @@ func (w *WallhavenProvider) fetchRandom(cfg *config.Config) (string, error) {
 	}
 
 	if selected != "" {
-		// ApplyWallpaper should return the filepath it is saved to
-		files.ApplyWallpaper(selected, w.Name())
+		output, err := files.ApplyWallpaper(selected, w.Name())
+		if err != nil {
+			return "", fmt.Errorf("%w", err)
+		}
+		current_string := fmt.Sprintf("%s\n%s", selected, output)
+		err = files.WriteStringToCache("wallhaven/current", current_string)
+		if err != nil {
+			return "", fmt.Errorf("%w", err)
+		}
 		return selected, nil
 	}
 

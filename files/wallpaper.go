@@ -7,12 +7,13 @@ import (
 	"github.com/davenicholson-xyz/wallmancer/download"
 )
 
-func ApplyWallpaper(file string, provider string) error {
+func ApplyWallpaper(file string, provider string) (string, error) {
 	filename := filepath.Base(file)
 	cache_dir, _ := GetCacheDir()
 	output := filepath.Join(cache_dir, provider, filename)
 
 	_ = download.DownloadImage(file, output)
 	wallpaper.Set(output)
-	return nil
+
+	return output, nil
 }
